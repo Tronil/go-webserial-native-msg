@@ -1,0 +1,27 @@
+{
+  "manifest_version": 2,
+  "name": "NativeMessaging",
+  "version": "1.0",
+
+  "description": "Native messaging experiments",
+
+  "background": {
+    "scripts": ["background-script.js"]
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["*://localhost/*"],
+      "js": ["content-script.js"]
+    }
+  ],
+
+  "applications": {
+    "gecko": {
+      "id": "NMExperiments@example.com",
+      "strict_min_version": "50.0"
+    }
+  },
+
+  "permissions": ["nativeMessaging"]
+}

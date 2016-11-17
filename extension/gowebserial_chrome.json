@@ -1,0 +1,9 @@
+{
+  "name": "gowebserial",
+  "description": "Webserial native app addon",
+  "path": "<GO BIN PATH>\\go-webserial-native-msg.exe",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://pmmajlahjokcgknoodfclcdhcngjfpee/"
+  ]
+}

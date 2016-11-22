@@ -39,7 +39,7 @@ NMSerialPort = {
                     promises[i].resolve(message.data);
                 }
             }
-            NMSerialPort.openPromises.delete(message.event)
+            NMSerialPort.openPromises.delete(message.event);
         }
     },
 
@@ -58,14 +58,14 @@ NMSerialPort = {
                     promises[i].resolve(message.data);
                 }
             }
-            NMSerialPort.openPromises.delete(message.event)
+            NMSerialPort.openPromises.delete(message.event);
         }        
     },
 
     handleData: function(message)
     {
         // Decode data into typed array
-        var decodedString = atob(message.data)
+        var decodedString = atob(message.data);
         var uint8Array = new Uint8Array(decodedString.length);
         for (var i = 0; i < decodedString.length; i++)
         {
@@ -109,7 +109,7 @@ NMSerialPort = {
         // We only accept messages from this window with type set to fromgws
         if (event.source != window || event.data.type != "fromgws")
             return;
-        var message = event.data.message
+        var message = event.data.message;
         if (message.event)
         {
             switch (message.event)

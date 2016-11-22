@@ -14,7 +14,7 @@ Load the extension into chrome and find its ID (something like "pmmajlahjokcgkno
 Edit the "allowed_origins" in gowebserial_chrome.json so it matches the ID
 
 **Update the path in the app manifest**
-Edit the "path" in gowebserial.json (for Firefox) and/or gowebserial_chrome.json (for Chrome) to point to the go-webserial.exe file
+Edit the "path" in gowebserial_firefox.json (for Firefox) and/or gowebserial_chrome.json (for Chrome) to point to the go-webserial.exe file
 
 **Load the extension**
 Load the extension manually (see the relevant browser docs) and off you go!

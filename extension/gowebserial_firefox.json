@@ -1,5 +1,5 @@
 {
-  "name": "gowebserial",
+  "name": "ext.gowebserial",
   "description": "Webserial native app addon",
   "path": "<GO BIN PATH>\\go-webserial-native-msg.exe",
   "type": "stdio",

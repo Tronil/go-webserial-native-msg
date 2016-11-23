@@ -1,0 +1,35 @@
+<html>
+<script src="./go-webserial-native-msg.js"></script>
+<body>
+<h1>List of serial ports</h1>
+<ul id="ports">
+</ul>
+<script>
+
+(function(){
+	function toHex16b(number) {
+		var str = number.toString(16)
+		return "0000".substring(0, 4 - str.length) + str;
+	}
+
+	function doScan() {
+		var list = document.getElementById('ports')
+		var tmpstr = "";
+		if(SerialPort) {
+			SerialPort.requestPorts().then(ports => {
+				ports.forEach(port => {
+					tmpstr += `<li>${port.displayName}, VID:${toHex16b(port.vendorId)} PID:${toHex16b(port.productId)}, Path:${port.path}</li>`;
+				});
+				list.innerHTML = tmpstr;
+			});
+		} else {
+			list.innerHTML = 'ERROR: SerialPort class not found!';
+		}
+	}
+
+	setInterval(doScan, 1000);
+})();
+
+</script>
+</body>
+</html>

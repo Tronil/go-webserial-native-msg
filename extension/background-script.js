@@ -17,7 +17,7 @@ function contentScriptPortDisconnected() {
 
 function messageFromNativeApp(message) {
 	//console.log("messageFromNativeApp: " + message)
-	contentScriptPort.postMessage(message);	
+	contentScriptPort.postMessage(message);
 }
 
 function nativeAppDisconnected() {
@@ -30,7 +30,7 @@ function nativeAppDisconnected() {
 
 function startNativeApp() {
 	if (!nativeAppPort) {
-		nativeAppPort = chrome.runtime.connectNative("gowebserial");
+		nativeAppPort = chrome.runtime.connectNative("ext.gowebserial");
 		nativeAppPort.onMessage.addListener(messageFromNativeApp);
 		nativeAppPort.onDisconnect.addListener(nativeAppDisconnected);
 	}

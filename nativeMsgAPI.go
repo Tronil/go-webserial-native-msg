@@ -1,11 +1,11 @@
 package main
 
 import (
-	"encoding/json"
-	serial "go.bug.st/serial"
 	"encoding/binary"
-	"os"
+	"encoding/json"
 	"fmt"
+	serial "go.bug.st/serial"
+	"os"
 )
 
 // Commands "enum"
@@ -19,54 +19,54 @@ var stdoutChannel chan []byte
 
 // Message types
 type OpenSerialPort struct {
-	commandChannel chan uint8
+	commandChannel     chan uint8
 	writeSerialChannel chan []byte
 }
 
 type PortListEvent struct {
-	Event string `json:"event"`
-	Data []SerialPort `json:"data"`
+	Event string       `json:"event"`
+	Data  []SerialPort `json:"data"`
 }
 
 type SerialDataEvent struct {
 	Event string `json:"event"`
-	Id uint8 `json:"id"`
-	Data []byte `json:"data"`
+	Id    uint8  `json:"id"`
+	Data  []byte `json:"data"`
 }
 
 type PortOpenEvent struct {
-	Event string `json:"event"`
-	Id uint8 `json:"id"`
+	Event      string `json:"event"`
+	Id         uint8  `json:"id"`
 	DevicePath string `json:"devicePath"`
 }
 
 type PortClosedEvent struct {
 	Event string `json:"event"`
-	Id uint8 `json:"id"`	
+	Id    uint8  `json:"id"`
 }
 
 type ErrorEvent struct {
-	Event string `json:"event"`
+	Event        string `json:"event"`
 	InResponseTo string `json:"inResponseTo"`
-	Id int16 `json:"id"`
-	Error string `json:"error"`
+	Id           int16  `json:"id"`
+	Error        string `json:"error"`
 }
 
 func writeNMToStdout(json string) {
 	size := make([]byte, 4)
-    binary.LittleEndian.PutUint32(size, uint32(len(json)))
+	binary.LittleEndian.PutUint32(size, uint32(len(json)))
 
 	os.Stdout.Write(size)
 	fmt.Print(json)
 }
 
 func outputNativeDebugMessage(message string) {
-    json := fmt.Sprintf("{\"debug\": \"%s\"}", message)
-    writeNMToStdout(json)
+	json := fmt.Sprintf("{\"debug\": \"%s\"}", message)
+	writeNMToStdout(json)
 }
 
 func outputErrorMessage(inResponseTo []byte, id int16, error string) {
-	event := ErrorEvent { Event: "Error", InResponseTo: string(inResponseTo[:]), Id: id, Error: error }
+	event := ErrorEvent{Event: "Error", InResponseTo: string(inResponseTo[:]), Id: id, Error: error}
 	js, err := json.Marshal(event)
 	if err != nil {
 		//http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -86,18 +86,18 @@ func sendJsonEventNative(daEvent interface{}) {
 	}
 
 	msg := make([]byte, 4)
-    binary.LittleEndian.PutUint32(msg, uint32(len(js)))
-    msg = append(msg, js...)
+	binary.LittleEndian.PutUint32(msg, uint32(len(js)))
+	msg = append(msg, js...)
 
-    stdoutChannel <- msg
+	stdoutChannel <- msg
 }
 
 func sendDebugMessage(message string) {
-    js := fmt.Sprintf("{\"debug\": \"%s\"}", message)
+	js := fmt.Sprintf("{\"debug\": \"%s\"}", message)
 	msg := make([]byte, 4)
-    binary.LittleEndian.PutUint32(msg, uint32(len(js)))
-    msg = append(msg, js...)
-    stdoutChannel <- msg    
+	binary.LittleEndian.PutUint32(msg, uint32(len(js)))
+	msg = append(msg, js...)
+	stdoutChannel <- msg
 }
 
 func listCommPorts() {
@@ -146,13 +146,13 @@ func connectSerialPort(devicePath string, baudRate int) (bool, string) {
 	id := uint8(0)
 	for {
 		idAvailable := true
-		for key, _ := range openPorts {
-			if (key == id) {
+		for key := range openPorts {
+			if key == id {
 				idAvailable = false
 				break
 			}
 		}
-		if (idAvailable) {
+		if idAvailable {
 			break
 		} else {
 			id++
@@ -178,21 +178,21 @@ func connectSerialPort(devicePath string, baudRate int) (bool, string) {
 				buff := make([]byte, 2048) // 512 bytes is max for high speed USB (so this leaves space for minimum 4 packages)
 				n, err := port.Read(buff)
 				if err != nil {
-					sendJsonEventNative(ErrorEvent { Event: "Error", InResponseTo: "", Id: int16(id), Error: "Error reading from serial port" })
+					sendJsonEventNative(ErrorEvent{Event: "Error", InResponseTo: "", Id: int16(id), Error: "Error reading from serial port"})
 					openPorts[id].commandChannel <- CommandClose
 					readDone <- true
 					break
 				}
 				if n == 0 {
-					sendJsonEventNative(ErrorEvent { Event: "Error", InResponseTo: "", Id: int16(id), Error: "EOF reading from serial port" })
+					sendJsonEventNative(ErrorEvent{Event: "Error", InResponseTo: "", Id: int16(id), Error: "EOF reading from serial port"})
 					openPorts[id].commandChannel <- CommandClose
-					readDone <- true				
+					readDone <- true
 					break
 				}
-				event := SerialDataEvent{ Event: "data", Id: id, Data: buff[:n]}
+				event := SerialDataEvent{Event: "data", Id: id, Data: buff[:n]}
 				sendJsonEventNative(event)
 				select {
-				case command := <- readCommandChannel:
+				case command := <-readCommandChannel:
 					if command == CommandClose {
 						readDone <- true
 						break
@@ -207,15 +207,15 @@ func connectSerialPort(devicePath string, baudRate int) (bool, string) {
 		go func() {
 			for {
 				select {
-				case message := <- openPorts[id].writeSerialChannel:
+				case message := <-openPorts[id].writeSerialChannel:
 					_, err = port.Write(message)
-					if (err != nil) {
-						sendJsonEventNative(ErrorEvent { Event: "Error", InResponseTo: "", Id: int16(id), Error: "Error writing to serial port" })
+					if err != nil {
+						sendJsonEventNative(ErrorEvent{Event: "Error", InResponseTo: "", Id: int16(id), Error: "Error writing to serial port"})
 						openPorts[id].commandChannel <- CommandClose
 						writeDone <- true
 						break
 					}
-				case command := <- writeCommandChannel:
+				case command := <-writeCommandChannel:
 					if command == CommandClose {
 						writeDone <- true
 						break
@@ -225,22 +225,22 @@ func connectSerialPort(devicePath string, baudRate int) (bool, string) {
 		}()
 
 		for {
-			command := <- openPorts[id].commandChannel
+			command := <-openPorts[id].commandChannel
 			readCommandChannel <- command
 			writeCommandChannel <- command
 			if command == CommandClose {
 				outputNativeDebugMessage("CommandClose received")
-				<- readDone
-				<- writeDone
+				<-readDone
+				<-writeDone
 				port.Close()
-				sendJsonEventNative(PortClosedEvent{ Event: "PortClosed", Id: id })
+				sendJsonEventNative(PortClosedEvent{Event: "PortClosed", Id: id})
 				portClosed <- id
-				break;
+				break
 			}
 		}
 	}()
 
-	sendJsonEventNative(PortOpenEvent{ Event: "PortOpen", Id: id, DevicePath: devicePath })
+	sendJsonEventNative(PortOpenEvent{Event: "PortOpen", Id: id, DevicePath: devicePath})
 
 	return true, ""
 }
@@ -261,7 +261,7 @@ func handleStdinRead(msgBuffer *[]byte, msgLength *int) {
 			// Message received; decode msg
 			var jsonMsg interface{}
 			err := json.Unmarshal(msg, &jsonMsg)
-			if (err != nil) {
+			if err != nil {
 				outputErrorMessage(msg, -1, "Command not valid JSON")
 				continue
 			}
@@ -281,7 +281,6 @@ func handleStdinRead(msgBuffer *[]byte, msgLength *int) {
 					outputErrorMessage(msg, int16(id), "No open port with that id")
 				}
 
-			
 			case "open":
 				devicePath, ok := command["devicePath"].(string)
 				if !ok {
@@ -291,7 +290,7 @@ func handleStdinRead(msgBuffer *[]byte, msgLength *int) {
 				baudRate, ok := command["baudRate"].(float64)
 				if !ok {
 					outputErrorMessage(msg, -1, "Missing baudRate!")
-					break					
+					break
 				}
 				outputNativeDebugMessage(fmt.Sprintf("Opening serial port %v", devicePath))
 				connected, error := connectSerialPort(devicePath, int(baudRate))
@@ -301,11 +300,11 @@ func handleStdinRead(msgBuffer *[]byte, msgLength *int) {
 
 			case "listPorts":
 				listCommPorts()
-			
+
 			case "write":
 				var commandStruct SerialDataEvent
 				err := json.Unmarshal(msg, &commandStruct)
-				if (err != nil) {
+				if err != nil {
 					outputErrorMessage(msg, -1, "Malformed write command")
 					break
 				}
@@ -314,13 +313,13 @@ func handleStdinRead(msgBuffer *[]byte, msgLength *int) {
 				} else {
 					outputErrorMessage(msg, int16(commandStruct.Id), "No open port with that id")
 				}
-			
+
 			default:
 				outputErrorMessage(msg, -1, "Command not recognized")
 			}
 		} else {
 			// No more messages to decode
-			break;
+			break
 		}
 	}
 }
@@ -334,11 +333,11 @@ func nativeMsgMainLoop() {
 
 	// Set up a channel to read from stdin
 	go func() {
-		buf := make([]byte, 1000)
 		for {
-			n, err := os.Stdin.Read(buf);
-			if (err != nil) {
-				break;
+			buf := make([]byte, 1000)
+			n, err := os.Stdin.Read(buf)
+			if err != nil {
+				break
 			}
 			stdinChannel <- buf[:n]
 		}
@@ -349,16 +348,16 @@ func nativeMsgMainLoop() {
 	for {
 		// Wait for commands on stdin, output on stdout or serial port state change
 		select {
-			case received := <-stdinChannel:
-				msgBuffer = append(msgBuffer, received...)
-				handleStdinRead(&msgBuffer, &msgLength)
+		case received := <-stdinChannel:
+			msgBuffer = append(msgBuffer, received...)
+			handleStdinRead(&msgBuffer, &msgLength)
 
-			case msg := <-stdoutChannel:
-				os.Stdout.Write(msg)
+		case msg := <-stdoutChannel:
+			os.Stdout.Write(msg)
 
-			case id := <-portClosed:
-				outputNativeDebugMessage(fmt.Sprintf("Serial port closed: %v", id))
-				delete(openPorts, id)
+		case id := <-portClosed:
+			outputNativeDebugMessage(fmt.Sprintf("Serial port closed: %v", id))
+			delete(openPorts, id)
 		}
 	}
 }

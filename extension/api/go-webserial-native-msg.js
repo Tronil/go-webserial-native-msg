@@ -18,9 +18,34 @@ NMSerialPort = {
         }        
     },
 
+    removePromise: function(eventName, index)
+    {
+        var promises = NMSerialPort.openPromises.get(eventName);
+        if (promises && promises.length > 1)
+        {
+            promises = promises.splice(index, 1);
+        }
+        else
+        {
+            NMSerialPort.openPromises.delete(eventName);
+        }
+    },
+
     sendMessage: function(message)
     {
         window.postMessage({ type: "togws", message: message }, "*");
+    },
+
+    closeAll: function()
+    {
+        NMSerialPort.openObjects.forEach( obj => {
+            if(obj.id !== -1)
+            {
+                console.log("Closing port: ", obj);
+                NMSerialPort.sendMessage({command: "close", id: obj.id});
+                obj.id = -1;
+            }
+        });
     },
 
     handleSerialPortsEvent: function(message)
@@ -56,9 +81,9 @@ NMSerialPort = {
                     NMSerialPort.openObjects.push(promises[i].object);
 
                     promises[i].resolve(message.data);
+                    NMSerialPort.removePromise(message.event, i);
                 }
             }
-            NMSerialPort.openPromises.delete(message.event);
         }        
     },
 
@@ -101,6 +126,79 @@ NMSerialPort = {
         }        
     },
 
+    handleError: function(message)
+    {
+        console.warn("Error occurred: " + message.error);
+        var promises;
+        var i, request;
+        try {
+            request = JSON.parse(message.inResponseTo);
+        } catch (e) {
+            console.log("ERROR:  Communication failed between browser and native messaging executable.  Closing connection!");
+            // TODO: Graceful shutdown.
+            return;
+        }
+
+        if (request && request.command)
+        {
+            switch (request.command)
+            {
+                case "listPorts":
+                promises = NMSerialPort.openPromises.get("SerialPorts");
+                if (promises)
+                {
+                    for (i = 0; i < promises.length; i++)
+                    {
+                        promises[i].reject(message.error);
+                    }
+                    NMSerialPort.openPromises.delete("SerialPorts");
+                }
+                break;
+
+                case "open":
+                promises = NMSerialPort.openPromises.get("PortOpen");
+                if (promises)
+                {
+                    for (i = 0; i < promises.length; i++)
+                    {
+                        if (promises[i].devicePath == request.devicePath)
+                        {
+                            promises[i].reject(message.error);
+                            NMSerialPort.removePromise("PortOpen", i);
+                        }
+                    }
+                }
+                break;
+
+                default:
+                if (message.id)
+                {
+                    NMSerialPort.handleGenericErrorOnPort(message.id, message.error);
+                }
+                break;
+            }
+        }
+        else if (message.id)
+        {
+            NMSerialPort.handleGenericErrorOnPort(message.id, message.error);
+        }
+    },
+
+    handleGenericErrorOnPort: function(id, error)
+    {
+        for (var i = 0; i < NMSerialPort.openObjects.length; i++)
+        {
+            if (NMSerialPort.openObjects[i].id == id)
+            {
+                if (NMSerialPort.openObjects[i].onErrorCallback)
+                {
+                    NMSerialPort.openObjects[i].onErrorCallback(error);
+                }
+                break;
+            }
+        }        
+    },
+
     onWindowEvent: function(event)
     {
 
@@ -129,6 +227,10 @@ NMSerialPort = {
                 case "PortClosed":
                 NMSerialPort.handleSerialPortClosed(message);
                 break;
+
+                case "Error":
+                NMSerialPort.handleError(message);
+                break;
             }
 
         }
@@ -138,6 +240,27 @@ NMSerialPort = {
 };
 
 window.addEventListener("message", NMSerialPort.onWindowEvent);
+
+
+// HACK: The following listeners are required to detect different combinations of reload, refresh and exit (force closes open ports)
+// 'beforeunload' seems to work on reload via 'enter in address bar'
+window.addEventListener('beforeunload', e => {
+    NMSerialPort.closeAll();
+});
+
+// This code handles the F5/Ctrl+F5/Ctrl+R
+document.addEventListener('keydown', e => {
+    var keycode;
+    if (window.event)
+        keycode = window.event.keyCode;
+    else if (e)
+        keycode = e.which;
+
+    if (keycode == 116 || (e.ctrlKey && keycode == 82)) {
+        NMSerialPort.closeAll();
+    }
+});
+
 
 class SerialPort {
     constructor(devicePath, modeOptions) {
@@ -183,12 +306,25 @@ class SerialPort {
         this.onCloseCallback = callback;
     }
 
+    get onClose() {
+        return this.onCloseCallback;
+    }
+
+    set onError(callback) {
+        this.onErrorCallback = callback;
+    }
+
+    get onError() {
+        return this.onErrorCallback;
+    }
+
     connect(callback) {
         this.callback = callback;
         return new Promise(function(resolve, reject) {
             NMSerialPort.addPromise("PortOpen", {resolve: resolve, reject: reject, object: this, devicePath: this.devicePath});
 
             NMSerialPort.sendMessage({ command: "open", devicePath: this.devicePath, baudRate: 57600 });
+
         }.bind(this));
     }
 
@@ -210,7 +346,7 @@ class SerialPort {
                 string += String.fromCharCode(uint8Array[i]);
             }
 
-            NMSerialPort.sendMessage({command: "write", id: this.id, data: btoa(string)})
+            NMSerialPort.sendMessage({command: "write", id: this.id, data: btoa(string)});
         }
     }
 }

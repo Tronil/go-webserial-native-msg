@@ -328,7 +328,7 @@ func nativeMsgMainLoop() {
 	openPorts = make(map[uint8]OpenSerialPort)
 	portClosed = make(chan uint8)
 
-	stdinChannel := make(chan []byte, 5)
+	stdinChannel := make(chan []byte, 100)
 	stdoutChannel = make(chan []byte, 100)
 
 	// Set up a channel to read from stdin

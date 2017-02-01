@@ -2,7 +2,7 @@
 console.log("Loaded native messaging js");
 
 // Connect to background script
-var backgroundScriptPort = chrome.runtime.connect();
+let backgroundScriptPort = chrome.runtime.connect();
 
 window.addEventListener("message", event => {
 	// We only accept messages from this window with type set to togws

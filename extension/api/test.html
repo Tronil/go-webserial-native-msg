@@ -8,13 +8,13 @@
 
 (function(){
 	function toHex16b(number) {
-		var str = number.toString(16)
+		let str = number.toString(16);
 		return "0000".substring(0, 4 - str.length) + str;
 	}
 
 	function doScan() {
-		var list = document.getElementById('ports')
-		var tmpstr = "";
+		let list = document.getElementById('ports');
+		let tmpstr = "";
 		if(SerialPort) {
 			SerialPort.requestPorts().then(ports => {
 				ports.forEach(port => {

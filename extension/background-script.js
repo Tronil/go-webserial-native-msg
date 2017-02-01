@@ -1,6 +1,6 @@
 /* jshint esversion: 6 */
-var contentScriptPort = null;
-var nativeAppPort = null;
+let contentScriptPort = null;
+let nativeAppPort = null;
 
 function messageFromContent(message) {
 	//console.log("Message received from content script:\n " + JSON.stringify(message));

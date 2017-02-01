@@ -1,136 +1,135 @@
 'use strict';
 
-var NMSerialPort;
-NMSerialPort = {
+const NMSerialPort = {
     openPromises: new Map(),
 
-    addPromise: function(eventName, promise)
+    addPromise(eventName, promise)
     {
-        if (NMSerialPort.openPromises.has(eventName))
+        if (this.openPromises.has(eventName))
         {
-            var promises = NMSerialPort.openPromises.get(eventName);
+            let promises = this.openPromises.get(eventName);
             promises.push(promise);
-            NMSerialPort.openPromises.set(eventName, promises);
+            this.openPromises.set(eventName, promises);
         }
         else
         {
-            NMSerialPort.openPromises.set(eventName, [promise]);
+            this.openPromises.set(eventName, [promise]);
         }        
     },
 
-    removePromise: function(eventName, index)
+    removePromise(eventName, index)
     {
-        var promises = NMSerialPort.openPromises.get(eventName);
+        let promises = this.openPromises.get(eventName);
         if (promises && promises.length > 1)
         {
             promises = promises.splice(index, 1);
         }
         else
         {
-            NMSerialPort.openPromises.delete(eventName);
+            this.openPromises.delete(eventName);
         }
     },
 
-    sendMessage: function(message)
+    sendMessage(message)
     {
         window.postMessage({ type: "togws", message: message }, "*");
     },
 
-    closeAll: function()
+    closeAll()
     {
-        NMSerialPort.openObjects.forEach( obj => {
+        this.openObjects.forEach( obj => {
             if(obj.id !== -1)
             {
                 console.log("Closing port: ", obj);
-                NMSerialPort.sendMessage({command: "close", id: obj.id});
+                this.sendMessage({command: "close", id: obj.id});
                 obj.id = -1;
             }
         });
     },
 
-    handleSerialPortsEvent: function(message)
+    handleSerialPortsEvent(message)
     {
-        var promises = NMSerialPort.openPromises.get(message.event);
+        let promises = this.openPromises.get(message.event);
         if (promises)
         {
-            for (var i = 0; i < promises.length; i++)
+            for (let promise of promises)
             {
-                if (promises[i].filters)
+                if (promise.filters)
                 {
-                    promises[i].resolve(SerialPort.filterPorts(message.data, promises[i].filters));
+                    promise.resolve(SerialPort.filterPorts(message.data, promise.filters));
                 }
                 else
                 {
-                    promises[i].resolve(message.data);
+                    promise.resolve(message.data);
                 }
             }
-            NMSerialPort.openPromises.delete(message.event);
+            this.openPromises.delete(message.event);
         }
     },
 
-    handleSerialPortOpened: function(message)
+    handleSerialPortOpened(message)
     {
-        var promises = NMSerialPort.openPromises.get(message.event);
+        let promises = this.openPromises.get(message.event);
         if (promises)
         {
-            for (var i = 0; i < promises.length; i++)
+            for (let i = 0; i < promises.length; i++)
             {
                 if (promises[i].devicePath == message.devicePath)
                 {
                     promises[i].object.id = message.id;
-                    NMSerialPort.openObjects.push(promises[i].object);
+                    this.openObjects.push(promises[i].object);
 
                     promises[i].resolve(message.data);
-                    NMSerialPort.removePromise(message.event, i);
+                    this.removePromise(message.event, i);
                 }
             }
         }        
     },
 
-    handleData: function(message)
+    handleData(message)
     {
         // Decode data into typed array
-        var decodedString = atob(message.data);
-        var uint8Array = new Uint8Array(decodedString.length);
-        for (var i = 0; i < decodedString.length; i++)
+        let decodedString = atob(message.data);
+        let uint8Array = new Uint8Array(decodedString.length);
+        for (let i = 0; i < decodedString.length; i++)
         {
             uint8Array[i] = decodedString.charCodeAt(i);
         }
 
         // Find and call the relevant callback
-        for (i = 0; i < NMSerialPort.openObjects.length; i++)
+        for (let openObject of this.openObjects)
         {
-            if (NMSerialPort.openObjects[i].id == message.id)
+            if (openObject.id == message.id)
             {
-                NMSerialPort.openObjects[i].callback(uint8Array);
+                openObject.callback(uint8Array);
                 break;
             }
         }
     },
 
-    handleSerialPortClosed: function(message)
+    handleSerialPortClosed(message)
     {
         // Find the relevant object and change its state
-        for (var i = 0; i < NMSerialPort.openObjects.length; i++)
+        for (let i = 0; i < this.openObjects.length; i++)
         {
-            if (NMSerialPort.openObjects[i].id == message.id)
+            if (this.openObjects[i].id == message.id)
             {
-                NMSerialPort.openObjects[i].id = -1;
-                if (NMSerialPort.openObjects[i].onCloseCallback)
+                this.openObjects[i].id = -1;
+                if (this.openObjects[i].onCloseCallback)
                 {
-                    NMSerialPort.openObjects[i].onCloseCallback();
+                    this.openObjects[i].onCloseCallback();
                 }
-                NMSerialPort.openObjects.splice(i, 1);
+                this.openObjects.splice(i, 1);
                 break;
             }
         }        
     },
 
-    handleError: function(message)
+    handleError(message)
     {
         console.warn("Error occurred: " + message.error);
-        var promises;
-        var i, request;
+        let promises;
+        let request;
         try {
             request = JSON.parse(message.inResponseTo);
         } catch (e) {
@@ -144,27 +143,27 @@ NMSerialPort = {
             switch (request.command)
             {
                 case "listPorts":
-                promises = NMSerialPort.openPromises.get("SerialPorts");
+                promises = this.openPromises.get("SerialPorts");
                 if (promises)
                 {
-                    for (i = 0; i < promises.length; i++)
+                    for (let promise of promises)
                     {
-                        promises[i].reject(message.error);
+                        promise.reject(message.error);
                     }
-                    NMSerialPort.openPromises.delete("SerialPorts");
+                    this.openPromises.delete("SerialPorts");
                 }
                 break;
 
                 case "open":
-                promises = NMSerialPort.openPromises.get("PortOpen");
+                promises = this.openPromises.get("PortOpen");
                 if (promises)
                 {
-                    for (i = 0; i < promises.length; i++)
+                    for (let i = 0; i < promises.length; i++)
                     {
                         if (promises[i].devicePath == request.devicePath)
                         {
                             promises[i].reject(message.error);
-                            NMSerialPort.removePromise("PortOpen", i);
+                            this.removePromise("PortOpen", i);
                         }
                     }
                 }
@@ -173,33 +172,33 @@ NMSerialPort = {
                 default:
                 if (message.id)
                 {
-                    NMSerialPort.handleGenericErrorOnPort(message.id, message.error);
+                    this.handleGenericErrorOnPort(message.id, message.error);
                 }
                 break;
             }
         }
         else if (message.id)
         {
-            NMSerialPort.handleGenericErrorOnPort(message.id, message.error);
+            this.handleGenericErrorOnPort(message.id, message.error);
         }
     },
 
-    handleGenericErrorOnPort: function(id, error)
+    handleGenericErrorOnPort(id, error)
     {
-        for (var i = 0; i < NMSerialPort.openObjects.length; i++)
+        for (let openObject of this.openObjects)
         {
-            if (NMSerialPort.openObjects[i].id == id)
+            if (openObject.id == id)
             {
-                if (NMSerialPort.openObjects[i].onErrorCallback)
+                if (openObject.onErrorCallback)
                 {
-                    NMSerialPort.openObjects[i].onErrorCallback(error);
+                    openObject.onErrorCallback(error);
                 }
                 break;
             }
         }        
     },
 
-    onWindowEvent: function(event)
+    onWindowEvent(event)
     {
 
         // Communication with the content script
@@ -207,29 +206,29 @@ NMSerialPort = {
         // We only accept messages from this window with type set to fromgws
         if (event.source != window || event.data.type != "fromgws")
             return;
-        var message = event.data.message;
+        const message = event.data.message;
         if (message.event)
         {
             switch (message.event)
             {
                 case "SerialPorts":
-                NMSerialPort.handleSerialPortsEvent(message);
+                this.handleSerialPortsEvent(message);
                 break;
 
                 case "PortOpen":
-                NMSerialPort.handleSerialPortOpened(message);
+                this.handleSerialPortOpened(message);
                 break;
 
                 case "data":
-                NMSerialPort.handleData(message);
+                this.handleData(message);
                 break;
 
                 case "PortClosed":
-                NMSerialPort.handleSerialPortClosed(message);
+                this.handleSerialPortClosed(message);
                 break;
 
                 case "Error":
-                NMSerialPort.handleError(message);
+                this.handleError(message);
                 break;
             }
 
@@ -239,7 +238,7 @@ NMSerialPort = {
     openObjects: [] // open serial port objects
 };
 
-window.addEventListener("message", NMSerialPort.onWindowEvent);
+window.addEventListener("message", NMSerialPort.onWindowEvent.bind(NMSerialPort));
 
 
 // HACK: The following listeners are required to detect different combinations of reload, refresh and exit (force closes open ports)
@@ -250,7 +249,7 @@ window.addEventListener('beforeunload', e => {
 
 // This code handles the F5/Ctrl+F5/Ctrl+R
 document.addEventListener('keydown', e => {
-    var keycode;
+    let keycode;
     if (window.event)
         keycode = window.event.keyCode;
     else if (e)
@@ -269,7 +268,7 @@ class SerialPort {
         this.modeString = "";
         this.id = -1;
         if(modeOptions) {
-            for(var key in modeOptions) {
+            for(let key in modeOptions) {
                 this.modeString += "&" + key + "=" + modeOptions[key];
             }
         }
@@ -284,13 +283,17 @@ class SerialPort {
     }
 
     static filterPorts(portList, filters) {
-        var result = [];
+        let result = [];
 
-        portList.forEach( function(port) {
-            var idx, filter;
-            for(idx = 0; idx < filters.length; idx++) {
-                filter = filters[idx];
-                for(var key in filter) {
+        portList.forEach( port => {
+            if (!(filters instanceof Array))
+            {
+                filters = [filters];
+            }
+
+            for(let idx = 0; idx < filters.length; idx++) {
+                let filter = filters[idx];
+                for(let key in filter) {
                     if(port[key] !== filter[key]) {
                         return;
                     }
@@ -339,9 +342,9 @@ class SerialPort {
         if (this.id != -1)
         {
             // Convert data (ArrayBuffer format) to base64 string
-            var uint8Array = new Uint8Array(data);
-            var string = "";
-            for (var i = 0; i < uint8Array.length; i++)
+            let uint8Array = new Uint8Array(data);
+            let string = "";
+            for (let i = 0; i < uint8Array.length; i++)
             {
                 string += String.fromCharCode(uint8Array[i]);
             }
